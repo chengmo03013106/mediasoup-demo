@@ -14,7 +14,7 @@ let server: Server | undefined;
 let processTerminationStarted: boolean = false;
 let delayedProcessTerminationStarted: boolean = false;
 
-handleProcess();
+handleProcess(); // 处理信号
 
 void start();
 
