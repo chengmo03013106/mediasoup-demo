@@ -53,6 +53,24 @@ export type ServerConfig = {
 	providers?: {
 		rtcstatsUrl?: string;
 	};
+	/**
+	 * Optional in-line media processing (旁路降噪/识别) settings.
+	 */
+	processing?: {
+		/**
+		 * Master switch. When false, the original direct-forward path is used.
+		 */
+		enabled?: boolean;
+		/**
+		 * IP address of the self-hosted processing service (denoiser).
+		 * SFU connects to this address to push the bypassed RTP stream.
+		 */
+		remoteIp?: string;
+		/**
+		 * UDP port the processing service listens on (bypass direction).
+		 */
+		remotePort?: number;
+	};
 };
 
 export type RoomId = string;

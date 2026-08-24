@@ -8,6 +8,7 @@ import { EnhancedEventEmitter } from './enhancedEvents';
 import { Bot } from './Bot';
 import { Peer } from './Peer';
 import { BroadcasterPeer } from './BroadcasterPeer';
+import { MediaRelay } from './MediaRelay';
 import {
 	RequestNameForRoom,
 	RequestApiMethod,
@@ -58,6 +59,7 @@ type RoomConstructorOptions = {
 	activeSpeakerObserver: mediasoupTypes.ActiveSpeakerObserver;
 	protooRoom: protooTypes.Room;
 	bot: Bot;
+	mediaRelay?: MediaRelay;
 };
 
 export type RoomEvents = {
@@ -111,6 +113,7 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 	> = new Map();
 	readonly #protooRoom: protooTypes.Room;
 	readonly #bot: Bot;
+	readonly #mediaRelay?: MediaRelay;
 	readonly #joiningPeers: Map<string, Peer> = new Map();
 	readonly #peers: Map<string, Peer> = new Map();
 	readonly #joiningBroadcasterPeers: Map<string, BroadcasterPeer> = new Map();
@@ -154,6 +157,11 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 			consumerRouter,
 		});
 
+		// Create the in-line media relay when processing is enabled.
+		const mediaRelay = config.processing?.enabled
+			? await MediaRelay.create({ config, producerRouter })
+			: undefined;
+
 		const room = new Room({
 			logger,
 			roomId,
@@ -169,6 +177,7 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 			activeSpeakerObserver,
 			protooRoom,
 			bot,
+			mediaRelay,
 		});
 
 		return room;
@@ -189,7 +198,8 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 		activeSpeakerObserver,
 		protooRoom,
 		bot,
-	}: RoomConstructorOptions) {
+		mediaRelay,
+		}: RoomConstructorOptions) {
 		super();
 
 		this.#logger = logger;
@@ -208,6 +218,7 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 		this.#activeSpeakerObserver = activeSpeakerObserver;
 		this.#protooRoom = protooRoom;
 		this.#bot = bot;
+		this.#mediaRelay = mediaRelay;
 		this.#createdAt = new Date();
 
 		if (disableBwe) {
@@ -255,6 +266,8 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 		}
 
 		this.#protooRoom.close();
+
+		this.#mediaRelay?.close();
 
 		this.#producerRouter.close();
 
@@ -619,6 +632,13 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 					.addProducer({ producerId: producer.id })
 					.catch(() => {});
 			}
+
+			// Bypass a copy of the audio stream to the processing service.
+			// Echo producers never reach this branch (they are produced by a
+			// BroadcasterPeer), so there is no loop risk here.
+			if (this.#mediaRelay && producer.kind === 'audio') {
+				void this.#mediaRelay.bypass(producer);
+			}
 		});
 
 		// eslint-disable-next-line @typescript-eslint/no-misused-promises
@@ -879,6 +899,9 @@ export class Room extends EnhancedEventEmitter<RoomEvents> {
 
 				producer.observer.on('close', () => {
 					this.#observedProducers.delete(producer.id);
+
+					// Remove the associated bypass consumer (if any).
+					this.#mediaRelay?.stop(producer.id);
 				});
 			});
 		});

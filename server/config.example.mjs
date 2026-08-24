@@ -203,4 +203,21 @@ export const config = {
 		 */
 		rtcstatsUrl: undefined,
 	},
+	/**
+	 * In-line media processing (旁路降噪/识别).
+	 *
+	 * When enabled, the server bypasses a copy of each audio stream to the
+	 * processing service. The processing service must join the room as a
+	 * BroadcasterPeer and produce the processed stream back (see
+	 * docs/降噪旁路项目开发文档.md).
+	 *
+	 * NOTE: the bypass direction uses rtcp-mux (RTP + RTCP on the same UDP
+	 * port), so the processing service MUST listen with rtcp-mux semantics.
+	 */
+	processing: {
+		enabled: false,
+		// IP:port of the self-hosted processing service (bypass direction).
+		remoteIp: '127.0.0.1',
+		remotePort: 5000,
+	},
 };
