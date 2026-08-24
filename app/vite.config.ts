@@ -161,7 +161,11 @@ export default defineConfig(async () => {
 			chunkSizeWarningLimit: Infinity,
 		},
 		server: {
-			host,
+			// Listen on all interfaces (0.0.0.0 + ::) so the page is reachable
+			// both via IPv4 (127.0.0.1) and IPv6 (::1). Using 'localhost' would
+			// bind only IPv6 ::1 in Vite 6, breaking browsers that resolve
+			// localhost to 127.0.0.1 ("can't reach this site").
+			host: true,
 			port,
 			https: cert && key ? { cert, key } : undefined,
 		},
